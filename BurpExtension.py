@@ -1,4 +1,5 @@
 import requests
+import re
 from java.net import URL
 from javax import swing
 from java.awt import Font
@@ -37,9 +38,11 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             "Put them to the fields and push the button to import all requests from the collection to the site map.")
         self.infoLabel5 = swing.JLabel(
             "Put your Postman collection id which you want add to the site map")
+        self.infoLabel51 = swing.JLabel(
+            "Example: 25184041-c1537769-f598-4c0e-b8ae-8cd185a79c00")
         self.collectionIdField = swing.JTextField()
-        self.infoLabel6 = swing.JLabel(
-            "Put your Postman access token")
+        self.infoLabel6 = swing.JLabel("Put your Postman access token")
+        self.infoLabel61 = swing.JLabel("Example: PMAT-01GP39X3DRS6A8A0FG1S9BTDF2")
         self.accessTokenField = swing.JTextField()
         self.addButton = swing.JButton("Add requests to site map", actionPerformed=self.addRequestsToSiteMap)
         self.infoLabel7 = swing.JLabel(
@@ -58,9 +61,11 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                 .addComponent(self.infoLabel3)
                                 .addComponent(self.infoLabel4)
                                 .addComponent(self.infoLabel5)
+                                .addComponent(self.infoLabel51)
                                 .addComponent(self.collectionIdField, swing.GroupLayout.PREFERRED_SIZE, 300,
                                               swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(self.infoLabel6)
+                                .addComponent(self.infoLabel61)
                                 .addComponent(self.accessTokenField, swing.GroupLayout.PREFERRED_SIZE, 300,
                                               swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(self.addButton)
@@ -78,11 +83,13 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                       .addComponent(self.infoLabel4)
                       .addGap(10)
                       .addComponent(self.infoLabel5)
+                      .addComponent(self.infoLabel51)
                       .addGap(15)
                       .addComponent(self.collectionIdField, swing.GroupLayout.PREFERRED_SIZE, 30,
                                     swing.GroupLayout.PREFERRED_SIZE)
                       .addGap(10)
                       .addComponent(self.infoLabel6)
+                      .addComponent(self.infoLabel61)
                       .addGap(10)
                       .addComponent(self.accessTokenField, swing.GroupLayout.PREFERRED_SIZE, 30,
                                     swing.GroupLayout.PREFERRED_SIZE)
@@ -93,8 +100,22 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         return
 
     def getRequestsFromPostman(self):
-        collection_id = self.collectionIdField.getText()
-        access_key = self.accessTokenField.getText()
+        collectionIdString = self.collectionIdField.getText()
+        accessTokenString = self.accessTokenField.getText()
+
+        match = re.search(r'[0-9]{8}-[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}',
+                          collectionIdString)
+        if not match:
+            self._callbacks.printError("Your collection id is wrong: " + collectionIdString +
+                                       ". Must be like: 25184041-c1537769-f598-4c0e-b8ae-8cd185a79c00")
+
+        match = re.search(r'PMAT-[0-9A-Z]{26}', collectionIdString)
+        if not match:
+            self._callbacks.printError("Your collection id is wrong: " + collectionIdString +
+                                       ". Must be like: PMAT-01GP39X3DRS6A8A0FG1S9BTDF2")
+
+        collection_id = collectionIdString
+        access_key = accessTokenString
 
         postman_api_endpoint = "https://api.getpostman.com/collections"
         headers = {"access_key": access_key}
