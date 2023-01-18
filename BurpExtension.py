@@ -15,13 +15,13 @@ except ImportError:
 class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
     def registerExtenderCallbacks(self, callbacks):
-        self._callbacks = callbacks
-        self._callbacks.setExtensionName("Postman Importer")
-        self._callbacks.registerExtensionStateListener(self)
+        self.callbacks = callbacks
+        self.callbacks.setExtensionName("Postman Importer")
+        self.callbacks.registerExtensionStateListener(self)
         self.helpers = callbacks.getHelpers()
 
         self.initGui()
-        self._callbacks.addSuiteTab(self)
+        self.callbacks.addSuiteTab(self)
         print("Extension Loaded")
 
     def initGui(self):
@@ -46,7 +46,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.accessTokenField = swing.JTextField()
         self.addButton = swing.JButton("Add requests to site map", actionPerformed=self.addRequestsToSiteMap)
         self.infoLabel7 = swing.JLabel(
-            "NOTE: If you add new requests from new collection, but their will be duplicat, they will be overwritten")
+            "NOTE: If you add new requests from another collection, but their will be duplicat, they will be overwritten")
         layout = swing.GroupLayout(self.tab)
         self.tab.setLayout(layout)
 
@@ -106,13 +106,13 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         match = re.search(r'[0-9]{8}-[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}',
                           collectionIdString)
         if not match:
-            self._callbacks.printError("Your collection id is wrong: " + collectionIdString +
-                                       ". Must be like: 25184041-c1537769-f598-4c0e-b8ae-8cd185a79c00")
+            self.callbacks.printError("Your collection id is wrong: " + collectionIdString +
+                                      ". Must be like: 25184041-c1537769-f598-4c0e-b8ae-8cd185a79c00")
 
         match = re.search(r'PMAT-[0-9A-Z]{26}', collectionIdString)
         if not match:
-            self._callbacks.printError("Your collection id is wrong: " + collectionIdString +
-                                       ". Must be like: PMAT-01GP39X3DRS6A8A0FG1S9BTDF2")
+            self.callbacks.printError("Your collection id is wrong: " + collectionIdString +
+                                      ". Must be like: PMAT-01GP39X3DRS6A8A0FG1S9BTDF2")
 
         collection_id = collectionIdString
         access_key = accessTokenString
@@ -140,12 +140,12 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                     port = 443
 
             newRequest = self.helpers.buildHttpRequest(url)
-            requestResponse = self._callbacks.makeHttpRequest(
+            requestResponse = self.callbacks.makeHttpRequest(
                 self.helpers.buildHttpService(host, port, protocol), newRequest)
 
             response = requestResponse.getResponse()
             if response:
-                self._callbacks.addToSiteMap(requestResponse)
+                self.callbacks.addToSiteMap(requestResponse)
 
     def addRequestsToSiteMap(self, event):
         thread.start_new_thread(self.getRequestsFromPostman, ())
