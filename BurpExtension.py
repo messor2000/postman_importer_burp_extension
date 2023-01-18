@@ -46,7 +46,8 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.accessTokenField = swing.JTextField()
         self.addButton = swing.JButton("Add requests to site map", actionPerformed=self.addRequestsToSiteMap)
         self.infoLabel7 = swing.JLabel(
-            "NOTE: If you add new requests from another collection, but their will be duplicat, they will be overwritten")
+            "NOTE: If you add new requests from another collection, but their will be duplicat, they will be "
+            "overwritten")
         layout = swing.GroupLayout(self.tab)
         self.tab.setLayout(layout)
 
@@ -100,28 +101,16 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         return
 
     def getRequestsFromPostman(self):
-        collectionIdString = self.collectionIdField.getText()
-        accessTokenString = self.accessTokenField.getText()
+        collectionId = self.collectionIdField.getText()
+        accessToken = self.accessTokenField.getText()
 
-        match = re.search(r'[0-9]{8}-[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}',
-                          collectionIdString)
-        if not match:
-            self.callbacks.printError("Your collection id is wrong: " + collectionIdString +
-                                      ". Must be like: 25184041-c1537769-f598-4c0e-b8ae-8cd185a79c00")
-
-        match = re.search(r'PMAT-[0-9A-Z]{26}', collectionIdString)
-        if not match:
-            self.callbacks.printError("Your collection id is wrong: " + collectionIdString +
-                                      ". Must be like: PMAT-01GP39X3DRS6A8A0FG1S9BTDF2")
-
-        collection_id = collectionIdString
-        access_key = accessTokenString
+        self.checkInputData(collectionId, accessToken)
 
         postman_api_endpoint = "https://api.getpostman.com/collections"
-        headers = {"access_key": access_key}
+        headers = {"access_key": accessToken}
 
         # Get all requests from Postman collection
-        response = requests.get("{}/{}".format(postman_api_endpoint, collection_id), headers)
+        response = requests.get("{}/{}".format(postman_api_endpoint, collectionId), headers)
         requests_data = response.json().get("collection", {}).get("item", [])
 
         # Add requests to Burp sitemap
@@ -156,3 +145,15 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
     def getUiComponent(self):
         return self.tab
+
+    def checkInputData(self, collectionId, accessToken):
+        collectionIdRegex = r'[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+        accessTokenRegex = r'PMAT-[0-9A-Z]{26}'
+
+        if re.search(collectionIdRegex, collectionId) is None:
+            self.callbacks.printError("Your collection id is wrong: " + collectionId +
+                                      ". Must be like: 25184041-c1537769-f598-4c0e-b8ae-8cd185a79c03")
+
+        if re.search(accessTokenRegex, accessToken) is None:
+            self.callbacks.printError("Your access token is wrong: " + accessToken +
+                                      ". Must be like: PMAT-01GP39X3DRS6A8A0FG1S9BTDF2")
