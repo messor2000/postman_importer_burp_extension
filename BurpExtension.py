@@ -136,6 +136,11 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             if response:
                 self.callbacks.addToSiteMap(requestResponse)
 
+            self.callbacks.printOutput(str(url))
+            self.callbacks.printOutput(str(port))
+            self.callbacks.printOutput(str(host))
+            self.callbacks.printOutput(str(protocol))
+
     def addRequestsToSiteMap(self, event):
         thread.start_new_thread(self.getRequestsFromPostman, ())
         return
