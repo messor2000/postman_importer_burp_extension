@@ -56,7 +56,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
     def registerExtenderCallbacks(self, callbacks):
         self.callbacks = callbacks
-        self.callbacks.setExtensionName("JSON Postman Importer")
+        self.callbacks.setExtensionName("Postman Importer")
         self.callbacks.registerExtensionStateListener(self)
         self.helpers = callbacks.getHelpers()
 
@@ -66,7 +66,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
     def initGui(self):
         self.tab = swing.JPanel()
-        self.titleLabel = swing.JLabel("JSON Postman Importer")
+        self.titleLabel = swing.JLabel("Postman Importer")
         self.titleLabel.setFont(Font("Tahoma", 1, 17))
         self.infoLabel1 = swing.JLabel(
             "To get JSON file from postman you need to import, you should follow these steps: ")
@@ -153,9 +153,14 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         return
 
     def getRequestsFromPostman(self):
-        f = open(str(self.file))
+        if self.file is None:
+            self.callbacks.printError('\nYou did not select file, try agine \n')
+            self.logArea.append('\nYou did not select file, try agine \n')
+            return
 
-        data = json.load(f)
+        selectedFile = open(str(self.file))
+
+        data = json.load(selectedFile)
 
         if data.get('variable'):
             if not self.variables:
@@ -212,13 +217,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             if self.check_url(url):
                 newRequest = createRequest(method, path, query, host, body, contentType)
 
-                requestResponse = self.callbacks.makeHttpRequest(
-                    self.helpers.buildHttpService(host, port, protocol), newRequest)
-
-                response = requestResponse.getResponse()
-                if response:
-                    self.callbacks.addToSiteMap(requestResponse)
-
                 self.addToSiteMap(url, newRequest, "")
 
                 self.logArea.append(
@@ -232,7 +230,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     def setUpHost(self, host):
         host = ".".join(host)
         if re.search("{{.*}}", host):
-            match = re.search("{{(.*?)}}", host)
+            match = re.search(self.pattern, host)
             key = match.group(1)
             found = False
             for var in self.variables:
@@ -280,14 +278,15 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             '\nEnvironment variable with key: %s and value: %s was successfully added \n' % (
                 endpointKey, endpointValue))
 
-    def replaceVariables(self, jsonBody):
-        if isinstance(jsonBody, str):
-            jsonBody = json.loads(jsonBody)
-        for key, value in jsonBody.items():
-            if isinstance(value, (str, dict)):
-                if "{{ " in value:
-                    jsonBody[key] = self.replaceVariables(value)
-        return jsonBody
+    def replaceVariables(self, body):
+        matches = re.findall(self.pattern, body)
+        for match in matches:
+            variable = next((var for var in self.variables if var['key'] == match), None)
+            if variable is not None:
+                body = body.replace("{{" + match + "}}", '"' + variable['value'] + '"')
+
+        return body
+
     def check_url(self, url):
         if re.search(self.pattern, url):
             self.logArea.append(
@@ -325,7 +324,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.callbacks.addToSiteMap(request_response)
 
     def getTabCaption(self):
-        return "JSON Postman Importer"
+        return "Postman Importer"
 
     def getUiComponent(self):
         return self.tab
@@ -359,8 +358,8 @@ class HttpService(IHttpService):
     def getProtocol(self):
         return self._protocol
 
-    def __str__(self):
-        return "protocol: {}, host: {}, port: {}".format(self._protocol, self._host, self._port)
+    # def __str__(self):
+    #     return "protocol: {}, host: {}, port: {}".format(self._protocol, self._host, self._port)
 
 
 class HttpRequestResponse(IHttpRequestResponse):
