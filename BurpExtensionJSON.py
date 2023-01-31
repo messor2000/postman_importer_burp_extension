@@ -38,6 +38,20 @@ def getRequestContentType(headers):
     return None
 
 
+def parsePostmanCollection(collection):
+    if 'item' in collection:
+        items = collection['item']
+        result = []
+        for item in items:
+            if 'item' in item:
+                result += parsePostmanCollection(item)
+            else:
+                result.append(item)
+        return result
+    else:
+        return [collection]
+
+
 def createRequest(method, path_name, query, host, body, contentType):
     if not body or body == "":
         return method + ' ' + path_name + query + ' HTTP/1.1\n\r' \
@@ -169,8 +183,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 for element in data['variable']:
                     self.variables.append(element)
 
-        items = data['item']
-        requests = [item for item in items if 'name' in item]
+        requests = parsePostmanCollection(data)
 
         self.logArea.append(
             '\nRequests from Postman collection: \n')
