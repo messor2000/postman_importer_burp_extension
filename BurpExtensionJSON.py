@@ -4,6 +4,7 @@ import os
 import urlparse
 from javax import swing
 from java.awt import Font
+import base64
 import thread
 from burp import IBurpExtender, IExtensionStateListener, ITab
 from burp import IHttpService
@@ -52,15 +53,72 @@ def parsePostmanCollection(collection):
         return [collection]
 
 
-def createRequest(method, path_name, query, host, body, contentType):
+def createRequestWithoutAuth(method, path_name, query, host, body, contentType):
     if not body or body == "":
         return method + ' ' + path_name + query + ' HTTP/1.1\n\r' \
             + 'Host: ' + host + '\n\r\n\r'
+
     else:
         return method + ' ' + path_name + query + ' HTTP/1.1\n\r' \
             + 'Host: ' + host + '\n\r' \
             + 'Content-Type: ' + contentType + '\n\r' \
             + '\n\r' + body + '\n\r'
+
+
+def createRequestWithAuth(method, path_name, query, host, body, contentType, auth):
+    if not body or body == "":
+        return method + ' ' + path_name + query + ' HTTP/1.1\n\r' \
+            + 'Host: ' + host + '\n\r' \
+            + 'Authorization: ' + auth + '\n\r'
+    else:
+        return method + ' ' + path_name + query + ' HTTP/1.1\n\r' \
+            + 'Host: ' + host + '\n\r' \
+            + 'Content-Type: ' + contentType + '\n\r' \
+            + 'Authorization: ' + auth + '\n\r' \
+            + '\n\r' + body + '\n\r'
+
+
+def getAuthorizationFromData(data):
+    auth_type = None
+    auth_params = {}
+
+    for item in data["item"]:
+        if "request" in item and "auth" in item["request"]:
+            if item["request"]["auth"]["type"] in ["basic", "bearer"]:
+                auth_type = item["request"]["auth"]["type"]
+                auth_params = item["request"]["auth"][auth_type]
+                break
+
+    username = ""
+    password = ""
+    token = ""
+    for param in auth_params:
+        if param.get("key") == "username":
+            username = param.get("value", "")
+        elif param.get("key") == "password":
+            password = param.get("value", "")
+        if param.get("key") == "token":
+            token = param.get("value", "")
+            break
+
+    if auth_type == "basic":
+        return "Basic " + base64.b64encode((username + ":" + password).encode("utf-8")).decode("utf-8")
+    elif auth_type == "bearer":
+        return "Bearer " + token
+    elif auth_type in ["oauth1", "oauth1.0a"]:
+        # Implement OAuth 1.0 or 1.0a specific authorization
+        pass
+    elif auth_type == "oauth2":
+        # Implement OAuth 2 specific authorization
+        pass
+    else:
+        raise ValueError("Unsupported auth type: " + auth_type)
+
+
+def checkAuthField(data):
+    if "auth" in data:
+        return True
+    return False
 
 
 class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
@@ -191,7 +249,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         for request in requests:
             url = request['request']['url']['raw']
             host = request['request']['url']['host']
-            port = request['request']['url'].get('port', None)
             protocol = request['request']['url'].get('protocol', None)
             method = request['request']['method']
             contentType = request['request']['header']
@@ -202,12 +259,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
             if not protocol:
                 protocol = "http"
-
-            if port == -1 or not port:
-                if protocol == "http":
-                    port = 80
-                elif protocol == "https":
-                    port = 443
 
             host = self.setUpHost(host)
             url = self.setUpUrl(url, protocol, host)
@@ -228,7 +279,12 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 contentType = ""
 
             if self.check_url(url):
-                newRequest = createRequest(method, path, query, host, body, contentType)
+                if checkAuthField(data):
+                    authorization = getAuthorizationFromData(data)
+                    print(authorization)
+                    newRequest = createRequestWithAuth(method, path, query, host, body, contentType, authorization)
+                else:
+                    newRequest = createRequestWithoutAuth(method, path, query, host, body, contentType)
 
                 self.addToSiteMap(url, newRequest, "")
 
@@ -254,8 +310,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             if not found:
                 self.callbacks.printError('\nThere is problem with reading this host in your request %s '
                                           % host)
-                self.logArea.append('\nThere is problem with reading this host in your request %s '
-                                    % host)
         return host
 
     def setUpUrl(self, url, protocol, host):
@@ -270,7 +324,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                     break
             if not found:
                 self.callbacks.printError('\nThere is problem with reading url in your request %s ' % url)
-                self.logArea.append('\nThere is problem with reading this url in your request %s ' % url)
 
         if not re.search("https://", url):
             url = re.sub("^(.*?)/", protocol + "://" + host + "/", url)
@@ -303,9 +356,9 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     def check_url(self, url):
         if re.search(self.pattern, url):
             self.logArea.append(
-                '\nRequest: %s was not added to the site map because of incorrect request: \n' % url)
+                '\nRequest: %s was not added to the site map because of incorrect url: \n' % url)
             self.callbacks.printError(
-                '\nRequest: %s was not added to the site map because of incorrect request: \n' % url)
+                '\nRequest: %s was not added to the site map because of incorrect url: \n' % url)
             return False
         else:
             return True
@@ -370,9 +423,6 @@ class HttpService(IHttpService):
 
     def getProtocol(self):
         return self._protocol
-
-    # def __str__(self):
-    #     return "protocol: {}, host: {}, port: {}".format(self._protocol, self._host, self._port)
 
 
 class HttpRequestResponse(IHttpRequestResponse):
