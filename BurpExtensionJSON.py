@@ -349,7 +349,8 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         for match in matches:
             variable = next((var for var in self.variables if var['key'] == match), None)
             if variable is not None:
-                body = body.replace("{{" + match + "}}", '"' + variable['value'] + '"')
+                # body = body.replace("{{" + match + "}}", '"' + variable['value'] + '"')
+                body = body.replace("{{" + match + "}}", variable['value'])
 
         return body
 
