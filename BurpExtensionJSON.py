@@ -157,7 +157,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                 .addComponent(self.addEndpointButton)
                                 .addComponent(self.infoLabel3)
                                 .addComponent(self.logLabel)
-                                .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 725,
+                                .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 825,
                                               swing.GroupLayout.PREFERRED_SIZE))))
 
         layout.setVerticalGroup(
@@ -190,7 +190,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                       .addGap(15)
                       .addComponent(self.logLabel)
                       .addGap(10)
-                      .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 225,
+                      .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 425,
                                     swing.GroupLayout.PREFERRED_SIZE)
                       .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
                       ))
@@ -265,7 +265,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 pass
 
         self.logArea.append(
-            '\n ----------------------- \n')
+            '\n -------------------------------------- \n')
 
     def setUpHost(self, host):
         host = ".".join(host)
@@ -403,20 +403,18 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         if re.match(match_pattern, value):
             match = re.search(pattern, value)
             key = match.group(1)
+            found = False
             for var in self.environment_variables:
                 if isinstance(var, dict) and var['key'] == key:
                     value = re.sub(value, var['value'], value)
-                # else:
-                #     self.logArea.append(
-                #         '\nEnvironment %s was not founded in environment variables list \n' % value)
+                    found = True
+            if not found:
+                self.logArea.append(
+                    '\nEnvironment by: %s key, was not founded in environment variables list \n' % value)
         else:
             value = value
 
         return value
-
-    def addRequestsToSiteMap(self, event):
-        thread.start_new_thread(self.getRequestsFromPostman, ())
-        return
 
     def loadFile(self, event):
         chooseFile = swing.JFileChooser()
@@ -439,6 +437,10 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     def addToSiteMap(self, url, request, response):
         request_response = HttpRequestResponse(request, response, HttpService(url), "", "")
         self.callbacks.addToSiteMap(request_response)
+
+    def addRequestsToSiteMap(self, event):
+        thread.start_new_thread(self.getRequestsFromPostman, ())
+        return
 
     def getTabCaption(self):
         return "Postman Importer"
