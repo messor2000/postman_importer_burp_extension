@@ -360,11 +360,37 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         elif auth_type == "bearer":
             return "Bearer " + token
         elif auth_type in ["oauth1", "oauth1.0a"]:
-            # Implement OAuth 1.0 or 1.0a specific authorization
-            pass
+            oauth_consumer_key = ""
+            oauth_token = ""
+            oauth_signature_method = ""
+            oauth_timestamp = ""
+            oauth_nonce = ""
+            oauth_version = ""
+            oauth_signature = ""
+
+            for param in auth_params:
+                if param.get("key") == "oauth_consumer_key":
+                    oauth_consumer_key = self.replaceVariablesInAuth(param["value"])
+                elif param.get("key") == "oauth_token":
+                    oauth_token = self.replaceVariablesInAuth(param["value"])
+                elif param.get("key") == "oauth_signature_method":
+                    oauth_signature_method = self.replaceVariablesInAuth(param["value"])
+                elif param.get("key") == "oauth_timestamp":
+                    oauth_timestamp = self.replaceVariablesInAuth(param["value"])
+                elif param.get("key") == "oauth_nonce":
+                    oauth_nonce = self.replaceVariablesInAuth(param["value"])
+                elif param.get("key") == "oauth_version":
+                    oauth_version = self.replaceVariablesInAuth(param["value"])
+                elif param.get("key") == "oauth_signature":
+                    oauth_signature = self.replaceVariablesInAuth(param["value"])
+
+            oauth_header = "OAuth oauth_consumer_key=\"{}\", oauth_token=\"{}\", oauth_signature_method=\"{}\", " \
+                           "oauth_timestamp=\"{}\", oauth_nonce=\"{}\", oauth_version=\"{}\", oauth_signature=\"{" \
+                           "}\"".format(oauth_consumer_key, oauth_token, oauth_signature_method, oauth_timestamp,
+                                        oauth_nonce, oauth_version, oauth_signature)
+            return oauth_header
         elif auth_type == "oauth2":
-            # Implement OAuth 2 specific authorization
-            pass
+            return "Bearer " + token
         else:
             if auth_type:
                 raise ValueError("Unsupported auth type: " + auth_type)
