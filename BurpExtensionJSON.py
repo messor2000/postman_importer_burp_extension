@@ -149,10 +149,10 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                 .addComponent(self.addButton)
                                 .addComponent(self.infoLabelEndpoint)
                                 .addComponent(self.infoEndpointKeyField)
-                                .addComponent(self.endpointKeyField, swing.GroupLayout.PREFERRED_SIZE, 300,
+                                .addComponent(self.endpointKeyField, swing.GroupLayout.PREFERRED_SIZE, 400,
                                               swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(self.infoEndpointValueField)
-                                .addComponent(self.endpointValueField, swing.GroupLayout.PREFERRED_SIZE, 300,
+                                .addComponent(self.endpointValueField, swing.GroupLayout.PREFERRED_SIZE, 400,
                                               swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(self.addEndpointButton)
                                 .addComponent(self.infoLabel3)
@@ -309,11 +309,18 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         if not self.environment_variables:
             self.environment_variables = ([newEntry])
         else:
-            self.environment_variables.append(newEntry)
+            for i, entry in enumerate(self.environment_variables):
+                if entry['key'] == endpointKey:
+                    self.environment_variables[i] = newEntry
+                    break
+            else:
+                self.environment_variables.append(newEntry)
 
         self.logArea.append(
             '\nEnvironment variable with key: %s and value: %s was successfully added \n' % (
                 endpointKey, endpointValue))
+
+        print(self.environment_variables)
 
     def replaceVariables(self, body):
         matches = re.findall(self.pattern, body)
