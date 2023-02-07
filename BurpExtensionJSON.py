@@ -78,51 +78,23 @@ def createRequestWithAuth(method, path_name, query, host, body, contentType, aut
             + '\n\r' + body + '\n\r'
 
 
-def getAuthorizationFromData(data):
-    auth_type = None
-    auth_params = {}
-
-    for item in data["item"]:
-        if "request" in item and "auth" in item["request"]:
-            if item["request"]["auth"]["type"] in ["basic", "bearer"]:
-                auth_type = item["request"]["auth"]["type"]
-                auth_params = item["request"]["auth"][auth_type]
-                break
-
-    username = ""
-    password = ""
-    token = ""
-    for param in auth_params:
-        if param.get("key") == "username":
-            username = param.get("value", "")
-        elif param.get("key") == "password":
-            password = param.get("value", "")
-        if param.get("key") == "token":
-            token = param.get("value", "")
-            break
-
-    if auth_type == "basic":
-        return "Basic " + base64.b64encode((username + ":" + password).encode("utf-8")).decode("utf-8")
-    elif auth_type == "bearer":
-        return "Bearer " + token
-    elif auth_type in ["oauth1", "oauth1.0a"]:
-        # Implement OAuth 1.0 or 1.0a specific authorization
-        pass
-    elif auth_type == "oauth2":
-        # Implement OAuth 2 specific authorization
-        pass
-    else:
-        raise ValueError("Unsupported auth type: " + auth_type)
-
-
-def checkAuthField(data):
-    if "auth" in data:
-        return True
+def checkAuthField(collection):
+    if isinstance(collection, dict):
+        if "auth" in collection:
+            return True
+        elif "request" in collection and "auth" in collection["request"]:
+            return True
+        elif "item" in collection:
+            return checkAuthField(collection["item"])
+    elif isinstance(collection, list):
+        for item in collection:
+            if checkAuthField(item):
+                return True
     return False
 
 
 class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
-    variables = []
+    environment_variables = []
     file = None
     pattern = "{{(.*?)}}"
 
@@ -235,11 +207,11 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         data = json.load(selectedFile)
 
         if data.get('variable'):
-            if not self.variables:
-                self.variables = data['variable']
+            if not self.environment_variables:
+                self.environment_variables = data['variable']
             else:
                 for element in data['variable']:
-                    self.variables.append(element)
+                    self.environment_variables.append(element)
 
         requests = parsePostmanCollection(data)
 
@@ -280,8 +252,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
             if self.check_url(url):
                 if checkAuthField(data):
-                    authorization = getAuthorizationFromData(data)
-                    print(authorization)
+                    authorization = self.getAuthorizationFromRequest(request)
                     newRequest = createRequestWithAuth(method, path, query, host, body, contentType, authorization)
                 else:
                     newRequest = createRequestWithoutAuth(method, path, query, host, body, contentType)
@@ -302,7 +273,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             match = re.search(self.pattern, host)
             key = match.group(1)
             found = False
-            for var in self.variables:
+            for var in self.environment_variables:
                 if isinstance(var, dict) and var['key'] == key:
                     host = var['value']
                     found = True
@@ -317,7 +288,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             match = re.search(self.pattern, url)
             key = match.group(1)
             found = False
-            for var in self.variables:
+            for var in self.environment_variables:
                 if isinstance(var, dict) and var['key'] == key:
                     url = re.sub(self.pattern, var['value'], url)
                     found = True
@@ -335,10 +306,10 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
         newEntry = {"type": "string", "value": endpointValue, "key": endpointKey}
 
-        if not self.variables:
-            self.variables = ([newEntry])
+        if not self.environment_variables:
+            self.environment_variables = ([newEntry])
         else:
-            self.variables.append(newEntry)
+            self.environment_variables.append(newEntry)
 
         self.logArea.append(
             '\nEnvironment variable with key: %s and value: %s was successfully added \n' % (
@@ -347,9 +318,8 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     def replaceVariables(self, body):
         matches = re.findall(self.pattern, body)
         for match in matches:
-            variable = next((var for var in self.variables if var['key'] == match), None)
+            variable = next((var for var in self.environment_variables if var['key'] == match), None)
             if variable is not None:
-                # body = body.replace("{{" + match + "}}", '"' + variable['value'] + '"')
                 body = body.replace("{{" + match + "}}", variable['value'])
 
         return body
@@ -363,6 +333,60 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             return False
         else:
             return True
+
+    def getAuthorizationFromRequest(self, request):
+        auth_type = None
+        auth_params = {}
+
+        if 'request' in request and 'auth' in request['request']:
+            if request["request"]["auth"]["type"] in ["basic", "bearer"]:
+                auth_type = request["request"]["auth"]["type"]
+                auth_params = request["request"]["auth"][auth_type]
+
+        username = ""
+        password = ""
+        token = ""
+        for param in auth_params:
+            if param.get("key") == "username":
+                username = self.replaceVariablesInAuth(param["value"])
+            elif param.get("key") == "password":
+                password = self.replaceVariablesInAuth(param["value"])
+            if param.get("key") == "token":
+                token = self.replaceVariablesInAuth(param["value"])
+                break
+
+        if auth_type == "basic":
+            return "Basic " + base64.b64encode((username + ":" + password).encode("utf-8")).decode("utf-8")
+        elif auth_type == "bearer":
+            return "Bearer " + token
+        elif auth_type in ["oauth1", "oauth1.0a"]:
+            # Implement OAuth 1.0 or 1.0a specific authorization
+            pass
+        elif auth_type == "oauth2":
+            # Implement OAuth 2 specific authorization
+            pass
+        else:
+            if auth_type:
+                raise ValueError("Unsupported auth type: " + auth_type)
+            else:
+                pass
+
+    def replaceVariablesInAuth(self, value):
+        match_pattern = r"{{.*}}"
+        pattern = r"{{(.*)}}"
+        if re.match(match_pattern, value):
+            match = re.search(pattern, value)
+            key = match.group(1)
+            for var in self.environment_variables:
+                if isinstance(var, dict) and var['key'] == key:
+                    value = re.sub(value, var['value'], value)
+                # else:
+                #     self.logArea.append(
+                #         '\nEnvironment %s was not founded in environment variables list \n' % value)
+        else:
+            value = value
+
+        return value
 
     def addRequestsToSiteMap(self, event):
         thread.start_new_thread(self.getRequestsFromPostman, ())
