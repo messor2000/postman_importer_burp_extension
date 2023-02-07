@@ -251,16 +251,25 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 contentType = ""
 
             if self.check_url(url):
+                authorization, found = None, None
                 if checkAuthField(data):
-                    authorization = self.getAuthorizationFromRequest(request)
-                    newRequest = createRequestWithAuth(method, path, query, host, body, contentType, authorization)
+                    authorization, found = self.getAuthorizationFromRequest(request)
+                    if not found:
+                        self.logArea.append(
+                            '\nRequest: %s was not added to the site map because of incorrect variables in '
+                            'authorization: \n' % url)
+                        continue
+                if found is None or found:
+                    if authorization:
+                        newRequest = createRequestWithAuth(method, path, query, host, body, contentType, authorization)
+                    else:
+                        newRequest = createRequestWithoutAuth(method, path, query, host, body, contentType)
+                    self.addToSiteMap(url, newRequest, "")
+                    self.logArea.append(
+                        '\nRequest: %s was successfully added to the site map \n' % url)
                 else:
-                    newRequest = createRequestWithoutAuth(method, path, query, host, body, contentType)
-
-                self.addToSiteMap(url, newRequest, "")
-
-                self.logArea.append(
-                    '\nRequest: %s was successfully added to the site map: \n' % url)
+                    self.logArea.append(
+                        '\nRequest: %s was not added to the site map \n' % url)
             else:
                 pass
 
@@ -320,8 +329,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             '\nEnvironment variable with key: %s and value: %s was successfully added \n' % (
                 endpointKey, endpointValue))
 
-        print(self.environment_variables)
-
     def replaceVariables(self, body):
         matches = re.findall(self.pattern, body)
         for match in matches:
@@ -344,6 +351,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     def getAuthorizationFromRequest(self, request):
         auth_type = None
         auth_params = {}
+        foundVariables = True
 
         if 'request' in request and 'auth' in request['request']:
             if request["request"]["auth"]["type"] in ["basic", "bearer"]:
@@ -362,10 +370,14 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 token = self.replaceVariablesInAuth(param["value"])
                 break
 
+        if '{{' in username or '{{' in password or '{{' in token:
+            foundVariables = False
+
         if auth_type == "basic":
-            return "Basic " + base64.b64encode((username + ":" + password).encode("utf-8")).decode("utf-8")
+            return "Basic " + base64.b64encode((username + ":" + password).encode("utf-8")).decode("utf-8")\
+                , foundVariables
         elif auth_type == "bearer":
-            return "Bearer " + token
+            return "Bearer " + token, foundVariables
         elif auth_type in ["oauth1", "oauth1.0a"]:
             oauth_consumer_key = ""
             oauth_token = ""
@@ -395,9 +407,9 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                            "oauth_timestamp=\"{}\", oauth_nonce=\"{}\", oauth_version=\"{}\", oauth_signature=\"{" \
                            "}\"".format(oauth_consumer_key, oauth_token, oauth_signature_method, oauth_timestamp,
                                         oauth_nonce, oauth_version, oauth_signature)
-            return oauth_header
+            return oauth_header, foundVariables
         elif auth_type == "oauth2":
-            return "Bearer " + token
+            return "Bearer " + token, foundVariables
         else:
             if auth_type:
                 raise ValueError("Unsupported auth type: " + auth_type)
@@ -407,17 +419,14 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     def replaceVariablesInAuth(self, value):
         match_pattern = r"{{.*}}"
         pattern = r"{{(.*)}}"
+
         if re.match(match_pattern, value):
             match = re.search(pattern, value)
             key = match.group(1)
-            found = False
             for var in self.environment_variables:
                 if isinstance(var, dict) and var['key'] == key:
                     value = re.sub(value, var['value'], value)
-                    found = True
-            if not found:
-                self.logArea.append(
-                    '\nEnvironment by: %s key, was not founded in environment variables list \n' % value)
+
         else:
             value = value
 
