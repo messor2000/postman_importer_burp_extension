@@ -94,7 +94,6 @@ def checkAuthField(collection):
 
 
 class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
-    environment_variables = []
     file = None
     pattern = "{{(.*?)}}"
 
@@ -118,14 +117,17 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             "Open collection, push export button, download .json file and upload this file to Burp")
         self.parseFileButton = swing.JButton("Load File to Parse", actionPerformed=self.loadFile)
         self.addButton = swing.JButton("Add requests to site map", actionPerformed=self.addRequestsToSiteMap)
-
-        self.infoLabelEndpoint = swing.JLabel("You can add endpoints for your requests")
+        self.infoLabelEndpoint = swing.JLabel("You can add variables for your requests, auth or body")
         self.infoEndpointKeyField = swing.JLabel("Variable: ")
         self.endpointKeyField = swing.JTextField()
         self.infoEndpointValueField = swing.JLabel("Initial value: ")
         self.endpointValueField = swing.JTextField()
-        self.addEndpointButton = swing.JButton("Add endpoint for requests ", actionPerformed=self.addEndpointToList)
-
+        self.addEndpointButton = swing.JButton("Add variable to list", actionPerformed=self.addEndpointToList)
+        self.removeButton = swing.JButton("Remove selected variable", actionPerformed=self.remove)
+        self.clearButton = swing.JButton("Clear all variables", actionPerformed=self.clear)
+        self.urlListModel = swing.DefaultListModel()
+        self.urlList = swing.JList(self.urlListModel)
+        self.urlListPane = swing.JScrollPane(self.urlList)
         self.infoLabel3 = swing.JLabel(
             "NOTE: If you add new requests from another collection, but their will be duplicat, they will be "
             "overwritten")
@@ -155,6 +157,10 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                 .addComponent(self.endpointValueField, swing.GroupLayout.PREFERRED_SIZE, 400,
                                               swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(self.addEndpointButton)
+                                .addComponent(self.urlListPane, swing.GroupLayout.PREFERRED_SIZE, 400,
+                                              swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(self.clearButton)
+                                .addComponent(self.removeButton)
                                 .addComponent(self.infoLabel3)
                                 .addComponent(self.logLabel)
                                 .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 825,
@@ -185,6 +191,13 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                     swing.GroupLayout.PREFERRED_SIZE)
                       .addGap(10)
                       .addComponent(self.addEndpointButton)
+                      .addGap(10)
+                      .addComponent(self.urlListPane, swing.GroupLayout.PREFERRED_SIZE, 150,
+                                    swing.GroupLayout.PREFERRED_SIZE)
+                      .addGap(10)
+                      .addComponent(self.removeButton)
+                      .addGap(10)
+                      .addComponent(self.clearButton)
                       .addGap(20)
                       .addComponent(self.infoLabel3)
                       .addGap(15)
@@ -192,11 +205,11 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                       .addGap(10)
                       .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 425,
                                     swing.GroupLayout.PREFERRED_SIZE)
-                      .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
                       ))
         return
 
     def getRequestsFromPostman(self):
+        environment_variables = self.getUrlList()
         if self.file is None:
             self.callbacks.printError('\nYou did not select file, try agine \n')
             self.logArea.append('\nYou did not select file, try agine \n')
@@ -207,11 +220,8 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         data = json.load(selectedFile)
 
         if data.get('variable'):
-            if not self.environment_variables:
-                self.environment_variables = data['variable']
-            else:
-                for element in data['variable']:
-                    self.environment_variables.append(element)
+            for element in data['variable']:
+                environment_variables.append(element)
 
         requests = parsePostmanCollection(data)
 
@@ -277,12 +287,13 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             '\n -------------------------------------- \n')
 
     def setUpHost(self, host):
+        environment_variables = self.getUrlList()
         host = ".".join(host)
         if re.search("{{.*}}", host):
             match = re.search(self.pattern, host)
             key = match.group(1)
             found = False
-            for var in self.environment_variables:
+            for var in environment_variables:
                 if isinstance(var, dict) and var['key'] == key:
                     host = var['value']
                     found = True
@@ -293,11 +304,12 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         return host
 
     def setUpUrl(self, url, protocol, host):
+        environment_variables = self.getUrlList()
         if re.search(self.pattern, url):
             match = re.search(self.pattern, url)
             key = match.group(1)
             found = False
-            for var in self.environment_variables:
+            for var in environment_variables:
                 if isinstance(var, dict) and var['key'] == key:
                     url = re.sub(self.pattern, var['value'], url)
                     found = True
@@ -310,29 +322,32 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         return url
 
     def addEndpointToList(self, event):
+        environment_variables = self.getUrlList()
         endpointKey = self.endpointKeyField.getText()
         endpointValue = self.endpointValueField.getText()
 
         newEntry = {"type": "string", "value": endpointValue, "key": endpointKey}
 
-        if not self.environment_variables:
-            self.environment_variables = ([newEntry])
+        for i, entry in enumerate(environment_variables):
+            if entry['key'] == endpointKey:
+                environment_variables[i] = newEntry
+                break
         else:
-            for i, entry in enumerate(self.environment_variables):
-                if entry['key'] == endpointKey:
-                    self.environment_variables[i] = newEntry
-                    break
-            else:
-                self.environment_variables.append(newEntry)
+            environment_variables.append(newEntry)
+
+        currentList = self.getUrlList()
+        currentList.append(newEntry)
+        self.urlList.setListData(currentList)
 
         self.logArea.append(
             '\nEnvironment variable with key: %s and value: %s was successfully added \n' % (
                 endpointKey, endpointValue))
 
     def replaceVariables(self, body):
+        environment_variables = self.getUrlList()
         matches = re.findall(self.pattern, body)
         for match in matches:
-            variable = next((var for var in self.environment_variables if var['key'] == match), None)
+            variable = next((var for var in environment_variables if var['key'] == match), None)
             if variable is not None:
                 body = body.replace("{{" + match + "}}", variable['value'])
 
@@ -374,7 +389,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             foundVariables = False
 
         if auth_type == "basic":
-            return "Basic " + base64.b64encode((username + ":" + password).encode("utf-8")).decode("utf-8")\
+            return "Basic " + base64.b64encode((username + ":" + password).encode("utf-8")).decode("utf-8") \
                 , foundVariables
         elif auth_type == "bearer":
             return "Bearer " + token, foundVariables
@@ -417,13 +432,14 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 pass
 
     def replaceVariablesInAuth(self, value):
+        environment_variables = self.getUrlList()
         match_pattern = r"{{.*}}"
         pattern = r"{{(.*)}}"
 
         if re.match(match_pattern, value):
             match = re.search(pattern, value)
             key = match.group(1)
-            for var in self.environment_variables:
+            for var in environment_variables:
                 if isinstance(var, dict) and var['key'] == key:
                     value = re.sub(value, var['value'], value)
 
@@ -463,6 +479,28 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
     def getUiComponent(self):
         return self.tab
+
+    def getUrlList(self):
+        model = self.urlList.getModel()
+        currentList = []
+
+        for i in range(0, model.getSize()):
+            currentList.append(model.getElementAt(i))
+
+        return currentList
+
+    def clear(self, e):
+        emptyList = []
+        self.urlList.setListData(emptyList)
+
+    def remove(self, e):
+        indices = self.urlList.getSelectedIndices().tolist()
+        currentList = self.getUrlList()
+
+        for index in reversed(indices):
+            del currentList[index]
+
+        self.urlList.setListData(currentList)
 
 
 class HttpService(IHttpService):
