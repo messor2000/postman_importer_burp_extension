@@ -203,7 +203,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                       .addGap(15)
                       .addComponent(self.logLabel)
                       .addGap(10)
-                      .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 425,
+                      .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 225,
                                     swing.GroupLayout.PREFERRED_SIZE)
                       ))
         return
