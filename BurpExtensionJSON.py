@@ -263,11 +263,11 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             if self.check_url(url):
                 authorization, found = None, None
                 if checkAuthField(data):
-                    authorization, found = self.getAuthorizationFromRequest(request)
+                    authorization, found = self.getAuthorization(request, data)
                     if not found:
                         self.logArea.append(
                             '\nRequest: %s was not added to the site map because of incorrect variables in '
-                            'authorization: \n' % url)
+                            'authorization \n' % url)
                         continue
                 if found is None or found:
                     if authorization:
@@ -356,14 +356,14 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     def check_url(self, url):
         if re.search(self.pattern, url):
             self.logArea.append(
-                '\nRequest: %s was not added to the site map because of incorrect url: \n' % url)
+                '\nRequest: %s was not added to the site map because of incorrect url \n' % url)
             self.callbacks.printError(
-                '\nRequest: %s was not added to the site map because of incorrect url: \n' % url)
+                '\nRequest: %s was not added to the site map because of incorrect url \n' % url)
             return False
         else:
             return True
 
-    def getAuthorizationFromRequest(self, request):
+    def getAuthorization(self, request, data):
         auth_type = None
         auth_params = {}
         foundVariables = True
@@ -372,6 +372,13 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             if request["request"]["auth"]["type"] in ["basic", "bearer"]:
                 auth_type = request["request"]["auth"]["type"]
                 auth_params = request["request"]["auth"][auth_type]
+        else:
+            auth = data["auth"]
+            auth_type = auth.get("type", None)
+            auth_params = auth.get("params", {})
+
+        print(auth_type)
+        print(auth_params)
 
         username = ""
         password = ""
@@ -461,10 +468,10 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 self.logArea.append(
                     '\nFile %s was successfully loaded \n' % filename)
             else:
-                self.callbacks.printError('\nFile %s was read but does not have the correct extension (.json). \n'
+                self.callbacks.printError('\nFile %s was read but does not have the correct extension (.json) \n'
                                           % filename)
                 self.logArea.append(
-                    '\nFile %s was read but does not have the correct extension (.json). \n' % filename)
+                    '\nFile %s was read but does not have the correct extension (.json) \n' % filename)
 
     def addToSiteMap(self, url, request, response):
         request_response = HttpRequestResponse(request, response, HttpService(url), "", "")
