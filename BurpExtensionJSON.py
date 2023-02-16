@@ -9,6 +9,7 @@ import thread
 from burp import IBurpExtender, IExtensionStateListener, ITab
 from burp import IHttpService
 from burp import IHttpRequestResponse
+from postman import Postman
 
 try:
     from exceptions_fix import FixBurpExceptions
@@ -96,6 +97,7 @@ def checkAuthField(collection):
 class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     file = None
     pattern = "{{(.*?)}}"
+    postman = Postman()
 
     def registerExtenderCallbacks(self, callbacks):
         self.callbacks = callbacks
@@ -259,6 +261,15 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
             if contentType is None:
                 contentType = ""
+
+            if 'event' in request and request['event'] and request['event'][0].get('listen') == "prerequest":
+                try:
+                    self.postman.runPreRequestScripts(request)
+                except Exception, e:
+                    self.logArea.append("An error occurred while evaluating the JavaScript code: %s" % e)
+                    continue
+
+            environment_variables.append(self.postman.get_script_variables())
 
             if self.check_url(url):
                 authorization, found = None, None
