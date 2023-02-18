@@ -9,5 +9,5 @@ setup(
     author='oovcharenko',
     author_email='',
     description='',
-    install_requires=['js2py']
+    install_requires=['<packagename>']
 )

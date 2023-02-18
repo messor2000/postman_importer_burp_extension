@@ -269,7 +269,8 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                     self.logArea.append("An error occurred while evaluating the JavaScript code: %s" % e)
                     continue
 
-            environment_variables.append(self.postman.get_script_variables())
+            environment_variables = self.postman.append_list_to_variables(environment_variables,
+                                                                          self.postman.get_script_variables())
 
             if self.check_url(url):
                 authorization, found = None, None
