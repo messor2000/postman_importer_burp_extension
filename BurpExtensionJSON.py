@@ -125,8 +125,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.infoEndpointValueField = swing.JLabel("Initial value: ")
         self.endpointValueField = swing.JTextField()
         self.addVariableButton = swing.JButton("Add variable to list", actionPerformed=self.add_variable_to_list)
-        self.refreshVeriablesButton = swing.JButton("Refresh variables list",
-                                                    actionPerformed=self.refresh_variables_list)
         self.removeButton = swing.JButton("Remove selected variable", actionPerformed=self.remove)
         self.clearButton = swing.JButton("Clear all variables", actionPerformed=self.clear)
         self.urlListModel = swing.DefaultListModel()
@@ -161,7 +159,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                 .addComponent(self.endpointValueField, swing.GroupLayout.PREFERRED_SIZE, 400,
                                               swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(self.addVariableButton)
-                                .addComponent(self.refreshVeriablesButton)
                                 .addComponent(self.urlListPane, swing.GroupLayout.PREFERRED_SIZE, 400,
                                               swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(self.clearButton)
@@ -196,8 +193,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                     swing.GroupLayout.PREFERRED_SIZE)
                       .addGap(10)
                       .addComponent(self.addVariableButton)
-                      .addGap(10)
-                      .addComponent(self.refreshVeriablesButton)
                       .addGap(10)
                       .addComponent(self.urlListPane, swing.GroupLayout.PREFERRED_SIZE, 150,
                                     swing.GroupLayout.PREFERRED_SIZE)
@@ -260,8 +255,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                                                           self.postman.get_script_variables())
             for variable in environment_variables:
                 if self.is_entry_unique(variable):
-                    print("ADDED:" + str(variable))
-                    self.add_variable_to_list_from_scripts(variable)
+                    self.add_variable_to_list_from_scripts(variable, None)
 
             host = self.setUpHost(host)
             url = self.setUpUrl(url, protocol, host)
@@ -365,7 +359,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             '\nEnvironment variable with key: %s and value: %s was successfully added \n' % (
                 endpointKey, endpointValue))
 
-    def add_variable_to_list_from_scripts(self, variable):
+    def add_variable_to_list_from_scripts(self, variable, event):
         endpointKey = variable['key']
 
         environment_variables = self.getUrlList()
@@ -375,8 +369,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 break
         else:
             environment_variables.append(variable)
-
-        print(environment_variables)
 
         currentList = self.getUrlList()
         currentList.append(variable)

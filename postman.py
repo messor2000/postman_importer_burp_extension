@@ -104,9 +104,6 @@ class Postman:
 
     def append_list_to_variables(self, list1, list2):
         list2 = update_tuple_list_to_dict_list(list2)
-        # print(list2)
-        # key_value_map = {item['key']: item['value'] for item in list2}
-        # print(key_value_map)
         for item in list1:
             if item['value'] == '' and item['key'] in list2:
                 item['value'] = list2[item['key']]
