@@ -110,6 +110,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.helpers = callbacks.getHelpers()
 
         self.initGui()
+        self.setUpJsCode()
         self.callbacks.addSuiteTab(self)
         print("Extension Loaded")
 
@@ -142,6 +143,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.logArea = swing.JTextArea("Postman Importer Log - Parsing and Run details will be appended here.\n")
         self.infoLabel11 = swing.JLabel(
             "If you need to get some values from pre-request scripts in Postman you should read instruction below.")
+        self.infoLabel11.setFont(Font("Tahoma", 1, 12))
         self.infoLabel12 = swing.JLabel(
             "To give able this extension run pre-request scripts you should deploy Node JS server local on you computer.")
         self.infoLabel13 = swing.JLabel(
@@ -152,109 +154,128 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.infoLabel16 = swing.JLabel("2: Create new .js file and past code inside of it.")
         self.infoLabel17 = swing.JLabel("3: Using terminal, open folder"
                                         " your file placed and run command: node your-file.js")
+        self.jsLabel = swing.JLabel("Node JS code:")
+        self.jsPane = swing.JTextPane()
+        self.infoNoteJs = swing.JLabel("NOTE: You can change Node JS server port as you want")
         self.logArea.setLineWrap(True)
         self.logPane.setViewportView(self.logArea)
         layout = swing.GroupLayout(self.tab)
         self.tab.setLayout(layout)
 
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                      .addGap(15)
-                      .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                                .addComponent(self.titleLabel)
-                                .addComponent(self.infoLabel1)
-                                .addComponent(self.infoLabel2)
-                                .addComponent(self.parseFileButton)
-                                .addComponent(self.addButton)
-                                .addComponent(self.infoLabelEndpoint)
-                                .addComponent(self.infoEndpointKeyField)
-                                .addComponent(self.endpointKeyField, swing.GroupLayout.PREFERRED_SIZE, 400,
-                                              swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(self.infoEndpointValueField)
-                                .addComponent(self.endpointValueField, swing.GroupLayout.PREFERRED_SIZE, 400,
-                                              swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(self.addVariableButton)
-                                .addComponent(self.urlListPane, swing.GroupLayout.PREFERRED_SIZE, 400,
-                                              swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(self.clearButton)
-                                .addComponent(self.removeButton)
-                                .addComponent(self.infoLabel3)
-                                .addComponent(self.logLabel)
-                                .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 825,
-                                              swing.GroupLayout.PREFERRED_SIZE)))
-            .addGap(30)
-            .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                      .addGap(15)
-                      .addComponent(self.infoLabel11)
-                      .addComponent(self.infoLabel12)
-                      .addComponent(self.infoLabel13)
-                      .addComponent(self.infoLabel14)
-                      .addComponent(self.infoLabel15)
-                      .addComponent(self.infoLabel16)
-                      .addComponent(self.infoLabel17)
-                      )
-        )
+        layout.setHorizontalGroup(layout.createSequentialGroup()
+                                  .addGap(30)
+                                  .addGroup(layout.createParallelGroup()
+                                            .addGap(15)
+                                            .addComponent(self.titleLabel)
+                                            .addComponent(self.infoLabel1)
+                                            .addComponent(self.infoLabel2)
+                                            .addComponent(self.parseFileButton)
+                                            .addComponent(self.addButton)
+                                            .addComponent(self.infoLabelEndpoint)
+                                            .addComponent(self.infoEndpointKeyField)
+                                            .addComponent(self.endpointKeyField, swing.GroupLayout.PREFERRED_SIZE, 400,
+                                                          swing.GroupLayout.PREFERRED_SIZE)
+                                            .addComponent(self.infoEndpointValueField)
+                                            .addComponent(self.endpointValueField, swing.GroupLayout.PREFERRED_SIZE,
+                                                          400,
+                                                          swing.GroupLayout.PREFERRED_SIZE)
+                                            .addComponent(self.addVariableButton)
+                                            .addComponent(self.urlListPane, swing.GroupLayout.PREFERRED_SIZE, 400,
+                                                          swing.GroupLayout.PREFERRED_SIZE)
+                                            .addComponent(self.clearButton)
+                                            .addComponent(self.removeButton)
+                                            .addComponent(self.infoLabel3)
+                                            .addComponent(self.logLabel)
+                                            .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 825,
+                                                          swing.GroupLayout.PREFERRED_SIZE))
+                                  .addGap(40)
+                                  .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                                            .addComponent(self.infoLabel11)
+                                            .addComponent(self.infoLabel12)
+                                            .addComponent(self.infoLabel13)
+                                            .addComponent(self.infoLabel14)
+                                            .addComponent(self.infoLabel15)
+                                            .addComponent(self.infoLabel16)
+                                            .addComponent(self.infoLabel17)
+                                            .addComponent(self.jsLabel)
+                                            .addComponent(self.jsPane, swing.GroupLayout.PREFERRED_SIZE, 400,
+                                                          swing.GroupLayout.PREFERRED_SIZE)
+                                            .addComponent(self.infoNoteJs)
+                                            )
+                                  )
 
-        layout.setVerticalGroup(
-            layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                      .addGap(15)
-                      .addComponent(self.titleLabel)
-                      .addGap(10)
-                      .addComponent(self.infoLabel1)
-                      .addGap(10)
-                      .addComponent(self.infoLabel2)
-                      .addGap(10)
-                      .addComponent(self.parseFileButton)
-                      .addGap(10)
-                      .addComponent(self.addButton)
-                      .addGap(20)
-                      .addComponent(self.infoLabelEndpoint)
-                      .addGap(10)
-                      .addComponent(self.infoEndpointKeyField)
-                      .addComponent(self.endpointKeyField, swing.GroupLayout.PREFERRED_SIZE, 30,
-                                    swing.GroupLayout.PREFERRED_SIZE)
-                      .addGap(10)
-                      .addComponent(self.infoEndpointValueField)
-                      .addComponent(self.endpointValueField, swing.GroupLayout.PREFERRED_SIZE, 30,
-                                    swing.GroupLayout.PREFERRED_SIZE)
-                      .addGap(10)
-                      .addComponent(self.addVariableButton)
-                      .addGap(10)
-                      .addComponent(self.urlListPane, swing.GroupLayout.PREFERRED_SIZE, 150,
-                                    swing.GroupLayout.PREFERRED_SIZE)
-                      .addGap(10)
-                      .addComponent(self.removeButton)
-                      .addGap(10)
-                      .addComponent(self.clearButton)
-                      .addGap(20)
-                      .addComponent(self.infoLabel3)
-                      .addGap(15)
-                      .addComponent(self.logLabel)
-                      .addGap(10)
-                      .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 225,
-                                    swing.GroupLayout.PREFERRED_SIZE)
-                      )
-            .addGap(30)
-            .addGroup(layout.createSequentialGroup()
-                      .addGap(15)
-                      .addComponent(self.infoLabel11)
-                      .addComponent(self.infoLabel12)
-                      .addComponent(self.infoLabel13)
-                      .addComponent(self.infoLabel14)
-                      .addComponent(self.infoLabel15)
-                      .addComponent(self.infoLabel16)
-                      .addComponent(self.infoLabel17)
-                      )
-        )
+        layout.setVerticalGroup(layout.createParallelGroup()
+                                .addGap(30)
+                                .addGroup(layout.createSequentialGroup()
+                                          .addGap(15)
+                                          .addComponent(self.titleLabel)
+                                          .addGap(10)
+                                          .addComponent(self.infoLabel1)
+                                          .addGap(10)
+                                          .addComponent(self.infoLabel2)
+                                          .addGap(10)
+                                          .addComponent(self.parseFileButton)
+                                          .addGap(10)
+                                          .addComponent(self.addButton)
+                                          .addGap(20)
+                                          .addComponent(self.infoLabelEndpoint)
+                                          .addGap(10)
+                                          .addComponent(self.infoEndpointKeyField)
+                                          .addComponent(self.endpointKeyField, swing.GroupLayout.PREFERRED_SIZE, 30,
+                                                        swing.GroupLayout.PREFERRED_SIZE)
+                                          .addGap(10)
+                                          .addComponent(self.infoEndpointValueField)
+                                          .addComponent(self.endpointValueField, swing.GroupLayout.PREFERRED_SIZE, 30,
+                                                        swing.GroupLayout.PREFERRED_SIZE)
+                                          .addGap(10)
+                                          .addComponent(self.addVariableButton)
+                                          .addGap(10)
+                                          .addComponent(self.urlListPane, swing.GroupLayout.PREFERRED_SIZE, 150,
+                                                        swing.GroupLayout.PREFERRED_SIZE)
+                                          .addGap(10)
+                                          .addComponent(self.removeButton)
+                                          .addGap(10)
+                                          .addComponent(self.clearButton)
+                                          .addGap(20)
+                                          .addComponent(self.infoLabel3)
+                                          .addGap(15)
+                                          .addComponent(self.logLabel)
+                                          .addGap(10)
+                                          .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 225,
+                                                        swing.GroupLayout.PREFERRED_SIZE)
+                                          )
+                                .addGap(40)
+                                .addGroup(layout.createSequentialGroup()
+                                          .addGap(45)
+                                          .addComponent(self.infoLabel11)
+                                          .addGap(15)
+                                          .addComponent(self.infoLabel12)
+                                          .addGap(10)
+                                          .addComponent(self.infoLabel13)
+                                          .addGap(10)
+                                          .addComponent(self.infoLabel14)
+                                          .addGap(10)
+                                          .addComponent(self.infoLabel15)
+                                          .addGap(10)
+                                          .addComponent(self.infoLabel16)
+                                          .addGap(10)
+                                          .addComponent(self.infoLabel17)
+                                          .addGap(15)
+                                          .addComponent(self.jsLabel)
+                                          .addGap(10)
+                                          .addComponent(self.jsPane, swing.GroupLayout.PREFERRED_SIZE, 600,
+                                                        swing.GroupLayout.PREFERRED_SIZE)
+                                          .addGap(15)
+                                          .addComponent(self.infoNoteJs)
+                                          )
+                                )
         return
 
     def getRequestsFromPostman(self):
         environment_variables = self.getUrlList()
         if self.file is None:
             self.callbacks.printError('\nYou did not select file, try agine \n')
-            self.logArea.append('\nYou did not select file, try agine \n')
+            self.logArea.append('\nERROR: You did not select file, try agine \n')
             return
 
         selectedFile = open(str(self.file))
@@ -288,7 +309,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 try:
                     self.postman.run_pre_request_scripts(request)
                 except Exception, e:
-                    self.logArea.append("An error occurred while evaluating the JavaScript code: %s" % e)
+                    self.logArea.append("ERROR: An error occurred while evaluating the JavaScript code: %s" % e)
                     continue
 
             environment_variables = self.postman.append_list_to_variables(environment_variables,
@@ -321,7 +342,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                     authorization, found = self.getAuthorization(request, data)
                     if not found:
                         self.logArea.append(
-                            '\nRequest: %s was not added to the site map because of incorrect variables in '
+                            '\nERROR: Request: %s was not added to the site map because of incorrect variables in '
                             'authorization \n' % url)
                         continue
                 if found is None or found:
@@ -355,7 +376,9 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                     found = True
                     break
             if not found:
-                self.callbacks.printError('\nThere is problem with reading this host in your request %s '
+                self.logArea.append('\nERROR: There is problem with reading this host in your request %s '
+                                          % host)
+                self.callbacks.printError('\nERROR: There is problem with reading this host in your request %s '
                                           % host)
         return host
 
@@ -371,7 +394,8 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                     found = True
                     break
             if not found:
-                self.callbacks.printError('\nThere is problem with reading url in your request %s ' % url)
+                self.logArea.append('\nERROR: There is problem with reading url in your request %s ' % url)
+                self.callbacks.printError('\n ERROR: There is problem with reading url in your request %s ' % url)
 
         if not re.search("https://", url):
             url = re.sub("^(.*?)/", protocol + "://" + host + "/", url)
@@ -439,7 +463,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     def check_url(self, url):
         if re.search(self.pattern, url):
             self.logArea.append(
-                '\nRequest: %s was not added to the site map because of incorrect url \n' % url)
+                '\nERROR: Request: %s was not added to the site map because of incorrect url \n' % url)
             self.callbacks.printError(
                 '\nRequest: %s was not added to the site map because of incorrect url \n' % url)
             return False
@@ -551,7 +575,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 self.callbacks.printError('\nFile %s was read but does not have the correct extension (.json) \n'
                                           % filename)
                 self.logArea.append(
-                    '\nFile %s was read but does not have the correct extension (.json) \n' % filename)
+                    '\nERROR: File %s was read but does not have the correct extension (.json) \n' % filename)
 
     def addToSiteMap(self, url, request, response):
         request_response = HttpRequestResponse(request, response, HttpService(url), "", "")
@@ -588,6 +612,13 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             del currentList[index]
 
         self.urlList.setListData(currentList)
+
+    def setUpJsCode(self):
+        # Change the file path to match the location of your .txt file
+        with open('jsCode.txt', 'r') as f:
+            code = f.read()
+
+        self.jsPane.setText(code)
 
 
 class HttpService(IHttpService):

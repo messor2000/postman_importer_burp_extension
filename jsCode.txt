@@ -1,0 +1,41 @@
+const http = require('http');
+
+const server = http.createServer((req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Request-Method', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+
+  if (req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    req.on('end', () => {
+      const code = JSON.parse(body).code;
+      console.log('Extracted code:', code);
+
+      let result;
+
+      try {
+        result = eval(code);
+      } catch (error) {
+        result = error.message;
+      }
+
+      const response = {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ result: result })
+      };
+      res.end(JSON.stringify(response));
+    });
+  }
+});
+
+const port = 3000;
+server.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}/`);
+});
