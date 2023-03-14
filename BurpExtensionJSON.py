@@ -99,6 +99,10 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     pattern = "{{(.*?)}}"
     postman = Postman()
 
+    def __init__(self):
+        self.callbacks = None
+        self.gui = None
+
     def registerExtenderCallbacks(self, callbacks):
         self.callbacks = callbacks
         self.callbacks.setExtensionName("Postman Importer")
@@ -136,6 +140,18 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.logLabel = swing.JLabel("Log:")
         self.logPane = swing.JScrollPane()
         self.logArea = swing.JTextArea("Postman Importer Log - Parsing and Run details will be appended here.\n")
+        self.infoLabel11 = swing.JLabel(
+            "If you need to get some values from pre-request scripts in Postman you should read instruction below.")
+        self.infoLabel12 = swing.JLabel(
+            "To give able this extension run pre-request scripts you should deploy Node JS server local on you computer.")
+        self.infoLabel13 = swing.JLabel(
+            "Node JS server must have specific configuration to receive requests and return response.")
+        self.infoLabel14 = swing.JLabel(
+            "To run such specific server follow these steps:")
+        self.infoLabel15 = swing.JLabel("1: Copy Node js code below.")
+        self.infoLabel16 = swing.JLabel("2: Create new .js file and past code inside of it.")
+        self.infoLabel17 = swing.JLabel("3: Using terminal, open folder"
+                                        " your file placed and run command: node your-file.js")
         self.logArea.setLineWrap(True)
         self.logPane.setViewportView(self.logArea)
         layout = swing.GroupLayout(self.tab)
@@ -166,7 +182,19 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                 .addComponent(self.infoLabel3)
                                 .addComponent(self.logLabel)
                                 .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 825,
-                                              swing.GroupLayout.PREFERRED_SIZE))))
+                                              swing.GroupLayout.PREFERRED_SIZE)))
+            .addGap(30)
+            .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                      .addGap(15)
+                      .addComponent(self.infoLabel11)
+                      .addComponent(self.infoLabel12)
+                      .addComponent(self.infoLabel13)
+                      .addComponent(self.infoLabel14)
+                      .addComponent(self.infoLabel15)
+                      .addComponent(self.infoLabel16)
+                      .addComponent(self.infoLabel17)
+                      )
+        )
 
         layout.setVerticalGroup(
             layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
@@ -207,7 +235,19 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                       .addGap(10)
                       .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 225,
                                     swing.GroupLayout.PREFERRED_SIZE)
-                      ))
+                      )
+            .addGap(30)
+            .addGroup(layout.createSequentialGroup()
+                      .addGap(15)
+                      .addComponent(self.infoLabel11)
+                      .addComponent(self.infoLabel12)
+                      .addComponent(self.infoLabel13)
+                      .addComponent(self.infoLabel14)
+                      .addComponent(self.infoLabel15)
+                      .addComponent(self.infoLabel16)
+                      .addComponent(self.infoLabel17)
+                      )
+        )
         return
 
     def getRequestsFromPostman(self):
