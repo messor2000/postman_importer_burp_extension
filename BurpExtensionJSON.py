@@ -309,7 +309,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 try:
                     self.postman.run_pre_request_scripts(request)
                 except Exception, e:
-                    self.logArea.append("ERROR: An error occurred while evaluating the JavaScript code: %s" % e)
+                    self.logArea.append("\nERROR: An error occurred while evaluating the JavaScript code: %s\n" % e)
                     continue
 
             environment_variables = self.postman.append_list_to_variables(environment_variables,
@@ -351,6 +351,16 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
                     else:
                         newRequest = createRequestWithoutAuth(method, path, query, host, body, contentType)
+
+                    try:
+                        tests = self.postman.run_tests(newRequest, request)
+                        print(tests)
+                        print("-----")
+                    except Exception, e:
+                        self.logArea.append("\nERROR: An error occurred while evaluating tests from Postman request: "
+                                            "%s\n" % e)
+                        continue
+
                     self.addToSiteMap(url, newRequest, "")
                     self.logArea.append(
                         '\nRequest: %s was successfully added to the site map \n' % url)
@@ -614,7 +624,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.urlList.setListData(currentList)
 
     def setUpJsCode(self):
-        # Change the file path to match the location of your .txt file
         with open('jsCode.txt', 'r') as f:
             code = f.read()
 

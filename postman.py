@@ -53,11 +53,71 @@ def reformat_script(str_list):
     return '\n'.join(line for line in formatted_script if not line.startswith('//'))
 
 
-def get_exec(item):
+def get_request_response(request):
+    lines = request.split('\n')
+    method, url, _ = lines[0].split()
+    headers = {}
+    host = ''
+    for line in lines[1:]:
+        if line.strip():
+            key, value = line.split(':', 1)
+            headers[key.strip()] = value.strip()
+            if key.strip().lower() == 'host':
+                host = value.strip()
+
+    body = None
+    if '' in lines:
+        body_str = ''.join(lines[lines.index('') + 1:])
+        if body_str.strip():
+            body = json.loads(body_str)
+
+    if not url.startswith('http'):
+        url = 'http://' + host + url
+
+    response = requests.request(method, url, headers=headers, json=body)
+    return response
+
+
+def get_request_response_code(request_str):
+    response = get_request_response(request_str)
+    response_code = response.text
+    return response_code
+
+def clean_tests(input_str):
+    lines = input_str.split('\n')
+
+    cleaned_lines = []
+    skip_line = False
+    for line in lines:
+        line = line.strip()
+        if skip_line:
+            if line.endswith('});'):
+                skip_line = False
+        elif line.startswith('pm.test'):
+            skip_line = True
+        elif line and not line.startswith('//') and not line.startswith('console.log'):
+            cleaned_lines.append(line)
+
+    cleaned_input = '\n'.join(cleaned_lines)
+
+    return cleaned_input
+
+
+def get_exec_scripts(item):
     for event in item.get('event', []):
-        script = event.get('script', {})
-        if 'exec' in script:
-            return script['exec']
+        if event.get('listen') == 'prerequest':
+            script = event.get('script', {})
+            if 'exec' in script:
+                return script['exec']
+    return None
+
+
+def get_exec_tests(item):
+    for event in item.get('event', []):
+        if event.get('listen') == 'test':
+            script = event.get('script', {})
+            if 'exec' in script:
+                return '\n'.join(script['exec'])
     return None
 
 
@@ -87,7 +147,7 @@ class Postman:
     environment = []
 
     def run_pre_request_scripts(self, request):
-        exec_script = get_exec(request)
+        exec_script = get_exec_scripts(request)
         if exec_script is not None:
             js_code = reformat_script(exec_script)
 
@@ -117,6 +177,20 @@ class Postman:
                 list1.append({'key': item['key'], 'value': item['value']})
         return list1
 
+    def get_request_response_status(self, request_str):
+        response = get_request_response(request_str)
+        response_code = response.status_code
+        return response_code
 
+    def run_tests(self, finalRequest, request):
+        response_text = get_request_response_code(finalRequest)
+
+        exec_tests = get_exec_tests(request)
+
+        if exec_tests is not None:
+            updated_tests = clean_tests(exec_tests)
+            return updated_tests
+
+        return None
 
 
