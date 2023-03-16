@@ -94,6 +94,15 @@ def checkAuthField(collection):
     return False
 
 
+def variables_enumerating(environment_variables, variable, endpointKey):
+    for i, entry in enumerate(environment_variables):
+        if entry['key'] == endpointKey:
+            environment_variables[i] = variable
+            break
+    else:
+        environment_variables.append(variable)
+
+
 class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     file = None
     pattern = "{{(.*?)}}"
@@ -186,7 +195,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                             .addComponent(self.removeButton)
                                             .addComponent(self.infoLabel3)
                                             .addComponent(self.logLabel)
-                                            .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 825,
+                                            .addComponent(self.logPane, swing.GroupLayout.PREFERRED_SIZE, 625,
                                                           swing.GroupLayout.PREFERRED_SIZE))
                                   .addGap(40)
                                   .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
@@ -246,7 +255,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                           )
                                 .addGap(40)
                                 .addGroup(layout.createSequentialGroup()
-                                          .addGap(45)
+                                          .addGap(40)
                                           .addComponent(self.infoLabel11)
                                           .addGap(15)
                                           .addComponent(self.infoLabel12)
@@ -408,12 +417,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
         newEntry = {"value": endpointValue, "key": endpointKey}
 
-        for i, entry in enumerate(environment_variables):
-            if entry['key'] == endpointKey:
-                environment_variables[i] = newEntry
-                break
-        else:
-            environment_variables.append(newEntry)
+        variables_enumerating(environment_variables, newEntry, endpointKey)
 
         currentList = self.getUrlList()
         currentList.append(newEntry)
@@ -427,12 +431,8 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         endpointKey = variable['key']
 
         environment_variables = self.getUrlList()
-        for i, entry in enumerate(environment_variables):
-            if entry['key'] == endpointKey:
-                environment_variables[i] = variable
-                break
-        else:
-            environment_variables.append(variable)
+
+        variables_enumerating(environment_variables, variable, endpointKey)
 
         currentList = self.getUrlList()
         currentList.append(variable)
