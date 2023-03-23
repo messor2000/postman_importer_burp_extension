@@ -9,16 +9,6 @@ def update_tuple_list_to_dict_list(tup_list, conditional):
     except Exception:
         tup_list = transform_list(tup_list)
         return [{'type': 'string', 'value': tup[1], 'key': tup[0]} for tup in tup_list]
-#
-# def update_tuple_list_to_dict_list(tup_list, conditional):
-#     if conditional == 'script':
-#         return [{'type': 'string', 'value': tup[0], 'key': tup[1]} for tup in tup_list]
-#     elif conditional == 'test':
-#         updated_tup_list = transform_list(tup_list)
-#         return [{'type': 'string', 'value': tup[1], 'key': tup[0]} for tup in updated_tup_list]
-#     else:
-#         raise ValueError("Invalid value for conditional parameter")
-
 
 
 def parse_result_scripts(input_str):
@@ -33,16 +23,6 @@ def separate_lists(input_dict):
     collection_variables_list = input_dict['collectionVariables']
     environment_list = input_dict['environment']
     return globals_list, collection_variables_list, environment_list
-
-
-def parse_result_tests(input_list):
-    input_dict = {}
-    for item in input_list:
-        parts = item.split('"')
-        key = parts[1]
-        value = parts[2][1:-1]
-        input_dict[key] = value
-    return input_dict
 
 
 def format_code(code):
@@ -200,26 +180,6 @@ def replace_value_in_test(value, push_string):
                 return '{}= \'{}\';'.format(parts[0], value)
 
         return push_string
-
-
-def extract_test_path(input_str):
-    if "jsonData" in input_str:
-        data = input_str.split("jsonData")[1]
-    elif "pm.response.json()" in input_str:
-        data = input_str.split("pm.response.json()")[1]
-    else:
-        return None
-
-    return data[:-2]
-
-
-def replace_line(input1, input2):
-    lines = input1.split('\n')
-    for i, line in enumerate(lines):
-        if line.startswith(lines[0][:10]):
-            lines[i] = input2.strip()
-            break
-    return '\n'.join(lines)
 
 
 def get_exec_scripts(item):
