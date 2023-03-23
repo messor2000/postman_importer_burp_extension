@@ -318,11 +318,11 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 try:
                     self.postman.run_pre_request_scripts(request)
                 except Exception, e:
-                    self.logArea.append("ERROR: An error occurred while evaluating the JavaScript code: %s" % e)
+                    self.logArea.append("\nERROR: An error occurred while evaluating the JavaScript code: %s\n" % e)
                     continue
 
-            environment_variables = self.postman.append_list_to_variables(environment_variables,
-                                                                          self.postman.get_script_variables())
+            environment_variables += self.postman.append_list_to_variables(environment_variables,
+                                                                           self.postman.get_script_variables(), 'script')
             for variable in environment_variables:
                 if self.is_entry_unique(variable):
                     self.add_variable_to_list_from_scripts(variable, None)
@@ -360,6 +360,18 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
                     else:
                         newRequest = createRequestWithoutAuth(method, path, query, host, body, contentType)
+
+                    if self.check_test(request):
+                        try:
+                            self.postman.run_tests(request, url, body, host, contentType, method, authorization)
+                            environment_variables += self.postman.append_list_to_variables(
+                                environment_variables, self.postman.get_script_variables(), 'test')
+                        except Exception, e:
+                            self.logArea.append(
+                                "\nERROR: An error occurred while evaluating tests from Postman request: "
+                                "%s : In request %s\n" % (e, request))
+                            continue
+
                     self.addToSiteMap(url, newRequest, "")
                     self.logArea.append(
                         '\nRequest: %s was successfully added to the site map \n' % url)
@@ -386,7 +398,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                     break
             if not found:
                 self.logArea.append('\nERROR: There is problem with reading this host in your request %s '
-                                          % host)
+                                    % host)
                 self.callbacks.printError('\nERROR: There is problem with reading this host in your request %s '
                                           % host)
         return host
@@ -404,7 +416,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                     break
             if not found:
                 self.logArea.append('\nERROR: There is problem with reading url in your request %s ' % url)
-                self.callbacks.printError('\n ERROR: There is problem with reading url in your request %s ' % url)
+                self.callbacks.printError('\nERROR: There is problem with reading url in your request %s ' % url)
 
         if not re.search("https://", url):
             url = re.sub("^(.*?)/", protocol + "://" + host + "/", url)
@@ -469,6 +481,14 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             return False
         else:
             return True
+
+    def check_test(self, request):
+        for event in request.get('event', []):
+            if event.get('listen') == 'test':
+                script = event.get('script', {})
+                if 'exec' in script:
+                    return True
+        return False
 
     def getAuthorization(self, request, data):
         auth_type = None
@@ -614,7 +634,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.urlList.setListData(currentList)
 
     def setUpJsCode(self):
-        # Change the file path to match the location of your .txt file
         with open('jsCode.txt', 'r') as f:
             code = f.read()
 
