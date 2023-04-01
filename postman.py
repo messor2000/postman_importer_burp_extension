@@ -3,19 +3,9 @@ import json
 import requests
 
 
-def update_tuple_list_to_dict_list(tup_list, conditional):
-    try:
-        return [{'type': 'string', 'value': tup[0], 'key': tup[1]} for tup in tup_list]
-    except Exception:
-        tup_list = transform_list(tup_list)
-        return [{'type': 'string', 'value': tup[1], 'key': tup[0]} for tup in tup_list]
-
-
-def parse_result_scripts(input_str):
-    globals_list = [(item['value'], item['key']) for item in input_str['globals']]
-    collection_variables_list = [(item['value'], item['key']) for item in input_str['collectionVariables']]
-    environment_list = [(item['value'], item['key']) for item in input_str['environment']]
-    return globals_list, collection_variables_list, environment_list
+def update_tuple_list_to_dict_list(tup_list):
+    tup_list = transform_list(tup_list)
+    return [{'type': 'string', 'value': tup[1], 'key': tup[0]} for tup in tup_list]
 
 
 def separate_lists(input_dict):
@@ -49,15 +39,15 @@ def reformat_script(str_list):
         elif "pm.collectionVariables.set" in s:
             name = s.split("(")[1].split(",")[0].strip("'")
             value = s.split(",")[1].strip().strip(")")
-            formatted_str = "pm.collectionVariables.push({value: %s, key: '%s'});" % (value, name)
+            formatted_str = "pm.collectionVariables.push('%s', %s);" % (name, value)
             formatted_script.append(formatted_str)
         elif "pm.globals.set" in s:
             variable_name = s.split("(")[1].split(",")[0].strip().strip('"')
-            formatted_str = "pm.globals.push({value: %s, key: '%s'});" % (variable_name, variable_name)
+            formatted_str = "pm.globals.push('%s', %s);" % (variable_name, variable_name)
             formatted_script.append(formatted_str)
         elif "pm.environment.set" in s:
             variable_name = s.split("(")[1].split(",")[0].strip().strip('"')
-            formatted_str = "pm.environment.push({value: %s, key: '%s'});" % (variable_name, variable_name)
+            formatted_str = "pm.environment.push('%s', %s);" % (variable_name, variable_name)
             formatted_script.append(formatted_str)
         else:
             formatted_script.append(s.strip())
@@ -108,6 +98,33 @@ def clean_tests(input_str):
             skip_line = True
         elif line and not line.startswith('//') and not line.startswith('/*') and not line.startswith('console.log') \
                 and 'JSON.parse(responseBody)' not in line:
+            cleaned_lines.append(line)
+
+    cleaned_input = '\n'.join(cleaned_lines)
+
+    return cleaned_input
+
+
+def clean_tests_after_adding_response(input_str):
+    lines = input_str.split('\n')
+
+    cleaned_lines = []
+    for line in lines:
+        line = line.strip()
+        if "pm.collectionVariables.set" in line:
+            name = line.split("(")[1].split(",")[0].strip("'")
+            value = line.split(",")[1].strip().strip(")")
+            formatted_str = "pm.collectionVariables.push(value: %s, key: '%s');" % (value, name)
+            cleaned_lines.append(formatted_str)
+        elif "pm.globals.set" in line:
+            variable_name = line.split("(")[1].split(",")[0].strip().strip('"')
+            formatted_str = "pm.globals.push(value: %s, key: '%s');" % (variable_name, variable_name)
+            cleaned_lines.append(formatted_str)
+        elif "pm.environment.set" in line:
+            variable_name = line.split("(")[1].split(",")[0].strip().strip('"')
+            formatted_str = "pm.environment.push(value: %s, key: '%s');" % (variable_name, variable_name)
+            cleaned_lines.append(formatted_str)
+        else:
             cleaned_lines.append(line)
 
     cleaned_input = '\n'.join(cleaned_lines)
@@ -247,10 +264,9 @@ class Postman:
         exec_script = get_exec_scripts(request)
         if exec_script is not None:
             js_code = reformat_script(exec_script)
-
             pm = eval_js(js_code)
 
-            globals, collection_variables, environment = parse_result_scripts(pm)
+            globals, collection_variables, environment = separate_lists(pm)
 
             self.collection_variables.append(collection_variables)
             self.globals.append(globals)
@@ -259,8 +275,8 @@ class Postman:
     def get_script_variables(self):
         return merge_lists([self.collection_variables, self.globals, self.environment])
 
-    def append_list_to_variables(self, list1, list2, conditional):
-        list2 = update_tuple_list_to_dict_list(list2, conditional)
+    def append_list_to_variables(self, list1, list2):
+        list2 = update_tuple_list_to_dict_list(list2)
         for item in list1:
             if item['value'] == '' and item['key'] in list2:
                 item['value'] = list2[item['key']]
@@ -272,6 +288,9 @@ class Postman:
                 existing_item['value'] = item['value']
             elif item['key'] in list2 and item['key'] not in [d['key'] for d in list1]:
                 list1.append({'key': item['key'], 'value': item['value']})
+        self.collection_variables = []
+        self.globals = []
+        self.environment = []
         return list1
 
     def run_tests(self, request, url, body, host, content_type, method, auth):
@@ -281,13 +300,10 @@ class Postman:
             if response_status is 200:
                 response_text = get_request_response_code(url, body, host, content_type, method, auth)
 
-                exec_tests = get_exec_tests(request)
                 cleaned_tests = clean_tests(exec_tests)
-                updated_tests = reformat_script_for_tests(cleaned_tests)
-
-                refactored_tests = run_formatted_test(updated_tests, response_text)
-
-                pm = eval_js(refactored_tests)
+                cleaned_tests = reformat_script_for_tests(cleaned_tests)
+                cleaned_tests = run_formatted_test(cleaned_tests, response_text)
+                pm = eval_js(cleaned_tests)
 
                 globals, collection_variables, environment = separate_lists(pm)
 

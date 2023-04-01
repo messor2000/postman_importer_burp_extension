@@ -103,6 +103,24 @@ def variables_enumerating(environment_variables, variable, endpointKey):
         environment_variables.append(variable)
 
 
+def check_test(request):
+    for event in request.get('event', []):
+        if event.get('listen') == 'test':
+            script = event.get('script', {})
+            if 'exec' in script:
+                return True
+    return False
+
+
+def check_prerequest(request):
+    for event in request.get('event', []):
+        if event.get('listen') == 'prerequest':
+            script = event.get('script', {})
+            if 'exec' in script:
+                return True
+    return False
+
+
 class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
     file = None
     pattern = "{{(.*?)}}"
@@ -314,7 +332,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             if not protocol:
                 protocol = "http"
 
-            if 'event' in request and request['event'] and request['event'][0].get('listen') == "prerequest":
+            if check_prerequest(request):
                 try:
                     self.postman.run_pre_request_scripts(request)
                 except Exception, e:
@@ -322,7 +340,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                     continue
 
             environment_variables += self.postman.append_list_to_variables(environment_variables,
-                                                                           self.postman.get_script_variables(), 'script')
+                                                                           self.postman.get_script_variables())
             for variable in environment_variables:
                 if self.is_entry_unique(variable):
                     self.add_variable_to_list_from_scripts(variable, None)
@@ -361,16 +379,26 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                     else:
                         newRequest = createRequestWithoutAuth(method, path, query, host, body, contentType)
 
-                    if self.check_test(request):
+                    if check_test(request):
                         try:
                             self.postman.run_tests(request, url, body, host, contentType, method, authorization)
-                            environment_variables += self.postman.append_list_to_variables(
-                                environment_variables, self.postman.get_script_variables(), 'test')
+                            try:
+                                environment_variables += self.postman.append_list_to_variables(
+                                    environment_variables, self.postman.get_script_variables())
+                            except Exception, e:
+                                self.logArea.append(
+                                    "\nERROR: An error occurred. Please relaunch extension: "
+                                    "%s : In request %s\n" % (e, request))
+                                continue
                         except Exception, e:
                             self.logArea.append(
                                 "\nERROR: An error occurred while evaluating tests from Postman request: "
                                 "%s : In request %s\n" % (e, request))
                             continue
+
+                    for variable in environment_variables:
+                        if self.is_entry_unique(variable):
+                            self.add_variable_to_list_from_scripts(variable, None)
 
                     self.addToSiteMap(url, newRequest, "")
                     self.logArea.append(
@@ -481,14 +509,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             return False
         else:
             return True
-
-    def check_test(self, request):
-        for event in request.get('event', []):
-            if event.get('listen') == 'test':
-                script = event.get('script', {})
-                if 'exec' in script:
-                    return True
-        return False
 
     def getAuthorization(self, request, data):
         auth_type = None
